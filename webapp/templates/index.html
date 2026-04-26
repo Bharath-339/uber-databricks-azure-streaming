@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Event Hub - Event Sender</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .loader.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .event-preview {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .event-preview.show {
+            display: block;
+        }
+
+        .event-preview h3 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .event-preview pre {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Azure Event Hub</h1>
+        <p class="subtitle">Send events to your Azure Event Hub</p>
+
+        <form id="eventForm">
+            <div class="form-group">
+                <label for="message">Message *</label>
+                <input
+                    type="text"
+                    id="message"
+                    name="message"
+                    placeholder="Enter your event message"
+                    required
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="customData">Custom Data (JSON)</label>
+                <textarea
+                    id="customData"
+                    name="customData"
+                    placeholder='{"key": "value", "example": "data"}'
+                ></textarea>
+            </div>
+
+            <button type="submit" id="submitBtn">Send Event</button>
+
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px; color: #667eea; font-size: 14px;">Sending...</p>
+            </div>
+
+            <div class="message" id="message-box"></div>
+
+            <div class="event-preview" id="eventPreview">
+                <h3>Event Preview:</h3>
+                <pre id="eventContent"></pre>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('eventForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loader');
+        const messageBox = document.getElementById('message-box');
+        const eventPreview = document.getElementById('eventPreview');
+        const eventContent = document.getElementById('eventContent');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const message = document.getElementById('message').value.trim();
+            const customDataStr = document.getElementById('customData').value.trim();
+
+            // Validate message
+            if (!message) {
+                showMessage('Message is required', 'error');
+                return;
+            }
+
+            // Parse custom data if provided
+            let customData = {};
+            if (customDataStr) {
+                try {
+                    customData = JSON.parse(customDataStr);
+                } catch (err) {
+                    showMessage('Invalid JSON in Custom Data field', 'error');
+                    return;
+                }
+            }
+
+            // Prepare event payload
+            const payload = {
+                message: message,
+                data: customData
+            };
+
+            // Show preview
+            eventContent.textContent = JSON.stringify(payload, null, 2);
+            eventPreview.classList.add('show');
+
+            // Disable button and show loader
+            submitBtn.disabled = true;
+            loader.classList.add('show');
+            messageBox.classList.remove('show');
+
+            try {
+                // Send to backend
+                const response = await fetch('/send-event', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(`✓ ${result.message}`, 'success');
+                    form.reset();
+                    eventPreview.classList.remove('show');
+                } else {
+                    showMessage(`✗ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`✗ Error: ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                loader.classList.remove('show');
+            }
+        });
+
+        function showMessage(text, type) {
+            messageBox.textContent = text;
+            messageBox.className = `message show ${type}`;
+        }
+    </script>
+</body>
+</html>
