@@ -1,0 +1,9 @@
+[
+    {"fileName": "bulk_rides"},
+    {"fileName": "map_cancellation_reasons"},
+    {"fileName": "map_cities"},
+    {"fileName": "map_payment_methods"},
+    {"fileName": "map_ride_statuses"},
+    {"fileName": "map_vehicle_makes"},
+    {"fileName": "map_vehicle_types"}
+]
